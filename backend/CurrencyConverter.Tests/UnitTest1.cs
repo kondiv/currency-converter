@@ -1,4 +1,4 @@
-﻿namespace Backend.Tests;
+﻿namespace CurrencyConverter.Tests;
 
 public class UnitTest1
 {
