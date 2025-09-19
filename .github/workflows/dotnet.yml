@@ -39,9 +39,7 @@ jobs:
     
     permissions:
       id-token: write
-      contents: read 
-      pages: write 
-      deployments: write 
+      pages: write
     
     steps:
     - name: Checkout code
