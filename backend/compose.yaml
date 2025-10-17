@@ -1,0 +1,22 @@
+﻿services:
+  currency.converter:
+    image: currency.converter:latest
+    build:
+      context: .
+      dockerfile: CurrencyConverter/Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:8079
+    ports:
+      - "8079:8079"
+    depends_on:
+      - currency.converter.history 
+      
+  currency.converter.history:
+    image: currency.converter.history:latest
+    build:
+      context: .
+      dockerfile: CurrencyConverter.History/Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "8080:8080"

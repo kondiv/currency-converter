@@ -1,41 +1,44 @@
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Пример запроса: GET /rate?from=USD&to=EUR
+app.MapGet("/rate", async (string from, string to) =>
 {
-    app.MapOpenApi();
-}
+    using var http = new HttpClient();
+    
+    var data = await http.GetFromJsonAsync<CbrResponse>("https://www.cbr-xml-daily.ru/latest.js");
+    if (data?.Rates == null)
+        return Results.BadRequest("Не удалось получить данные от ЦБ.");
 
-app.UseHttpsRedirection();
+    var baseCurrency = data.Base ?? "RUB";
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    if (!data.Rates.TryGetValue(from, out var fromToRub) &&
+        !from.Equals(baseCurrency, StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest($"Не найдена валюта {from}.");
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    if (!data.Rates.TryGetValue(to, out var toToRub) &&
+        !to.Equals(baseCurrency, StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest($"Не найдена валюта {to}.");
+    
+    decimal rate;
+
+    if (from.Equals(baseCurrency, StringComparison.OrdinalIgnoreCase))
+        rate = 1 / toToRub; 
+    else if (to.Equals(baseCurrency, StringComparison.OrdinalIgnoreCase))
+        rate = fromToRub;  
+    else
+        rate = fromToRub / toToRub;
+
+    return Results.Ok(new
+    {
+        From = from,
+        To = to,
+        Rate = Math.Round(rate, 6),
+        Base = baseCurrency,
+        Date = data.Date
+    });
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+record CbrResponse(string Disclaimer, string Date, long Timestamp, string Base, Dictionary<string, decimal> Rates);
